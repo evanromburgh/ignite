@@ -1,0 +1,449 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Light theme */
+:root {
+  --theme-bg: #f5f5f4;
+  --theme-surface: #ffffff;
+  --theme-surface-hover: #fafafa;
+  --theme-surface-elevated: #ffffff;
+  --theme-border: #e4e4e7;
+  --theme-border-strong: #d4d4d8;
+  --theme-overlay: rgba(0, 0, 0, 0.4);
+  --theme-overlay-nav: #18181b;
+  --theme-overlay-dropdown: #ffffff;
+  --theme-card-overlay: rgba(0, 0, 0, 0.6);
+  --theme-input-bg: #f4f4f5;
+  --theme-text-primary: #18181b;
+  --theme-text-muted: #52525b;
+  --theme-text-muted-2: #71717a;
+  --theme-accent-green: #22c55e;
+  --theme-footer-bg: #18181b;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+input,
+select,
+textarea {
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+input[type="number"] {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+/* Auth portal password fields: use Inter so dots feel lighter/smaller without changing size */
+.auth-password-input {
+  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html,
+body {
+  width: 100%;
+  overflow-x: hidden;
+}
+/* Where supported, clip avoids the scroll containment that breaks viewport position:sticky */
+@supports (overflow-x: clip) {
+  html,
+  body {
+    overflow-x: clip;
+  }
+}
+
+body {
+  font-family: 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  /* Use dark background so initial paint (before Vue hydration)
+     matches the loader. The actual app surface uses bg-theme-bg
+     on the layout wrapper. */
+  background: #18181b;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--theme-text-primary);
+}
+
+/* iOS data detectors: keep auto-detected values visually non-link-like. */
+a[x-apple-data-detectors],
+a[x-apple-data-detectors-type],
+a[href^="x-apple-data-detectors://"] {
+  color: inherit !important;
+  text-decoration: inherit !important;
+  font: inherit !important;
+  cursor: inherit !important;
+}
+
+/* Remove letter spacing from entire app (overrides Tailwind tracking-* utilities) */
+*,
+*::before,
+*::after {
+  letter-spacing: normal !important;
+}
+
+/* (Unit gallery slide now handled via flex translateX; no special transition classes needed) */
+
+/* Solid panels â€” no liquid glass / no backdrop blur */
+.liquid-glass {
+  background: var(--theme-input-bg);
+  border: 1px solid var(--theme-border-strong);
+}
+
+.liquid-glass-dark {
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+}
+
+/* Filter bar: solid opaque panel, lifted look */
+.filter-bar {
+  background-color: var(--theme-surface) !important;
+  background-image: none !important;
+  opacity: 1;
+  isolation: isolate;
+  backdrop-filter: none;
+  border: 1px solid var(--theme-border) !important;
+  border-radius: 1.5rem;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.05),
+    0 6px 16px -2px rgb(0 0 0 / 0.08),
+    0 12px 28px -4px rgb(0 0 0 / 0.06);
+  color: var(--theme-text-primary);
+}
+
+/* Light card variant: white card, dark text, light inputs */
+.filter-bar--light {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.05),
+    0 6px 16px -2px rgb(0 0 0 / 0.08),
+    0 12px 28px -4px rgb(0 0 0 / 0.06);
+}
+
+/* Embedded (e.g. mobile drawer): no card, keep filter control styling from --light */
+.filter-bar--embedded {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  padding: 0 !important;
+}
+.filters-drawer-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+.filter-bar--light label,
+.filter-bar--light .filter-bar-label {
+  color: #52525b;
+}
+.filter-bar--light input[type="text"],
+.filter-bar--light select,
+.filter-bar--light button[type="button"]:not(.filter-bar-clear) {
+  background-color: #f4f4f5 !important;
+  border-color: #e4e4e7 !important;
+  color: #18181b;
+}
+.filter-bar--light input::placeholder {
+  color: #71717a;
+}
+.filter-bar--light select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2352525b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E") !important;
+}
+.filter-bar--light .price-slider .slider-connect {
+  background-color: #3f3f46 !important;
+}
+.filter-bar--light .price-slider .slider-base > div[aria-hidden="true"] {
+  background-color: #e4e4e7 !important;
+}
+.filter-bar--light .slider-handle {
+  background-color: #3f3f46 !important;
+}
+.filter-bar--light .slider-tooltip-pill {
+  background-color: #18181b !important;
+  color: #ffffff !important;
+}
+.filter-bar--light .slider-tooltip-arrow {
+  border-top-color: #18181b !important;
+}
+.filter-bar--light .filter-bar-clear {
+  color: #52525b !important;
+  background: transparent !important;
+  border: none !important;
+}
+.filter-bar--light .filter-bar-clear:hover {
+  color: #18181b !important;
+}
+.filter-bar--light .filter-bar-clear.filter-bar-clear--danger {
+  color: #dc2626 !important;
+  background: transparent !important;
+  border: 1px solid #dc2626 !important;
+}
+.filter-bar--light .filter-bar-clear.filter-bar-clear--danger:hover {
+  color: #b91c1c !important;
+  background: transparent !important;
+  border-color: #b91c1c !important;
+}
+
+/* Unit card Sold/Reserved overlay: keep opacity so content shows through */
+.unit-card-overlay {
+  background: var(--theme-card-overlay);
+}
+
+/* Filter bar: dropdown arrow on all selects (light theme) */
+.filter-bar select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2352525b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.5rem;
+}
+
+/* Filter bar: dropdown option list matches theme (fallback for native select) */
+.filter-bar select option {
+  background: var(--theme-input-bg);
+  color: var(--theme-text-primary);
+}
+
+/* Border beam (moving border) - match portal auth card */
+.border-beam-container {
+  position: relative;
+  padding: 1px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.border-beam-container::before {
+  content: '';
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 280deg,
+    rgba(24, 24, 27, 1) 320deg,
+    transparent 360deg
+  );
+  animation: beam-rotate 4s linear infinite;
+  z-index: 0;
+}
+@keyframes beam-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.border-beam-inner {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  background: var(--theme-surface-elevated);
+}
+
+
+/* Curtain / logo animations (entrance) */
+@keyframes curtain-wipe {
+  0% { transform: translateX(-100%); }
+  48%, 52% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes logo-mask {
+  0%, 2% { clip-path: inset(0 100% 0 0); opacity: 0; }
+  48%, 52% { clip-path: inset(0 0 0 0); opacity: 1; }
+  98%, 100% { clip-path: inset(0 0 0 100%); opacity: 0; }
+}
+
+.animate-curtain {
+  animation: curtain-wipe 1.2s cubic-bezier(0.7, 0, 0.2, 1) forwards;
+}
+
+.animate-logo-mask {
+  animation: logo-mask 1.2s cubic-bezier(0.7, 0, 0.2, 1) forwards;
+}
+
+/* Price slider structure */
+.price-slider {
+  --track-h: 4px;
+  --thumb-size: 14px;
+  --slider-dark: #24262b;
+}
+.price-slider .slider-base {
+  position: relative;
+}
+.price-slider .price-range-input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 100%;
+  height: var(--thumb-size);
+  min-height: var(--thumb-size);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  z-index: 5;
+}
+.price-slider .price-range-input::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  min-width: var(--thumb-size);
+  min-height: var(--thumb-size);
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: grab;
+  box-shadow: none;
+  /* Center thumb on value to match visible handle (translate(-50%, -50%)) */
+  transform: translate(-50%, -50%);
+}
+/* Left (min) handle: thumb positioned by left edge â†’ translate -50% to center */
+.price-slider .price-range-input-min::-webkit-slider-thumb {
+  transform: translate(-50%, -50%);
+}
+/* Right (max) handle: thumb positioned by right edge â†’ translate 50% to center */
+.price-slider .price-range-input-max::-webkit-slider-thumb {
+  transform: translate(50%, -50%);
+}
+.price-slider .price-range-input::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  appearance: none;
+  height: var(--track-h);
+  background: transparent;
+}
+.price-slider .price-range-input-max {
+  pointer-events: none;
+}
+.price-slider .price-range-input-max::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+.price-slider .price-range-input::-moz-range-track {
+  height: var(--track-h);
+  background: transparent;
+  border: none;
+}
+.price-slider .price-range-input::-moz-range-thumb {
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  min-width: var(--thumb-size);
+  min-height: var(--thumb-size);
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  cursor: grab;
+  box-shadow: none;
+  pointer-events: auto;
+  /* Center thumb on value to match visible handle */
+  transform: translate(-50%, -50%);
+}
+/* Left (min) handle: thumb positioned by left edge â†’ translate -50% to center */
+.price-slider .price-range-input-min::-moz-range-thumb {
+  transform: translate(-50%, -50%);
+}
+/* Right (max) handle: thumb positioned by right edge â†’ translate 50% to center */
+.price-slider .price-range-input-max::-moz-range-thumb {
+  transform: translate(50%, -50%);
+}
+
+/* Legacy price-range-slider (keep for any other use) */
+.price-range-slider {
+  --track-h: 4px;
+  --thumb-size: 14px;
+  --track-top: 52px;
+  --slider-dark: #24262b;
+}
+/* Stadium pill: soft large corner radii, elongated (not circular) */
+.price-range-pill {
+  display: inline-block;
+  background: var(--slider-dark);
+  padding: 6px 14px;
+  border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  min-width: 1px;
+}
+/* Triangle seamlessly integrated into bottom edge (no gap, overlaps 1px) */
+.price-range-pill-pointer {
+  width: 0;
+  height: 0;
+  margin-top: -1px;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--slider-dark);
+}
+.price-range-track {
+  background: var(--slider-dark);
+}
+.price-range-slider .price-range-input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--track-top);
+  width: 100%;
+  height: var(--track-h);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.price-range-slider .price-range-input::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  border-radius: 50%;
+  background: var(--slider-dark);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.price-range-slider .price-range-input::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  appearance: none;
+  height: var(--track-h);
+  background: transparent;
+}
+.price-range-slider .price-range-input-max {
+  pointer-events: none;
+}
+.price-range-slider .price-range-input-max::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+.price-range-slider .price-range-input::-moz-range-track {
+  height: var(--track-h);
+  background: transparent;
+  border: none;
+}
+.price-range-slider .price-range-input::-moz-range-thumb {
+  width: var(--thumb-size);
+  height: var(--thumb-size);
+  border-radius: 50%;
+  background: var(--slider-dark);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04);
+  pointer-events: auto;
+}
+
+/* Montserrat is loaded through 700, matching the Nuxt stylesheet.
+   font-black and font-extrabold stay on that face. */
+.font-black,
+.font-extrabold {
+  font-weight: 700;
+}
