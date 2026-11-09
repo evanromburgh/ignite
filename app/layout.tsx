@@ -4,6 +4,7 @@ import { Inter, Montserrat } from 'next/font/google'
 import { AuthProvider } from '@/components/auth/auth-provider'
 import { SettingsProvider } from '@/components/settings-context'
 import { Shell } from '@/components/shell'
+import { ToastHost } from '@/components/toast'
 import { getProjectSettings } from '@/lib/content'
 import './globals.css'
 import './feature.css'
@@ -16,6 +17,7 @@ const montserrat = Montserrat({
   weight: ['300', '400', '500', '600', '700'],
   style: ['normal', 'italic'],
   display: 'swap',
+  variable: '--font-montserrat',
 })
 
 const inter = Inter({
@@ -46,10 +48,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <head>
         <style>{`:root{${theme}}`}</style>
       </head>
-      <body className={`${montserrat.className} ${inter.variable} bg-[#18181b] text-theme-text-primary antialiased`}>
+      <body className={`${montserrat.className} ${montserrat.variable} ${inter.variable} bg-[#18181b] text-theme-text-primary antialiased`}>
         <SettingsProvider value={settings}>
           <AuthProvider>
             <Shell>{children}</Shell>
+            <ToastHost />
           </AuthProvider>
         </SettingsProvider>
       </body>

@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { initialsFromName } from '@/lib/format'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '@/components/auth/auth-provider'
 
 export function ProfileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -35,12 +34,14 @@ export function ProfileDrawer({ open, onClose }: { open: boolean; onClose: () =>
 
   if (phase === 'closed' || !user) return null
   const state = phase === 'closing' ? 'closing' : 'open'
-  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.displayName || ''
-  const rows = [
+  const fields = [
+    ['First name', user.firstName ?? ''],
+    ['Last name', user.lastName ?? ''],
     ['Email', user.email ?? ''],
     ['Phone', user.phone ?? ''],
     ['ID / Passport', user.idPassportNumber ?? ''],
-    ['Reason', user.reasonForBuying ?? ''],
+    ['Interested In', user.interestedIn ?? ''],
+    ['Reason for buying', user.reasonForBuying ?? ''],
   ]
 
   return (
@@ -80,25 +81,24 @@ export function ProfileDrawer({ open, onClose }: { open: boolean; onClose: () =>
             </button>
           </div>
         </aside>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-7 sm:px-8 sm:py-7">
-          <h3 className="text-[17px] font-bold leading-6">Profile details</h3>
-          <section className="mt-4 grid gap-4 border-t border-black/[0.07] py-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-center sm:gap-6">
-            <p className="text-[13px] font-medium">Profile</p>
-            <div className="flex items-center gap-4">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#2f3037] text-sm font-semibold text-white">
-                {initialsFromName(name || user.email || 'U', 2)}
-              </span>
-              <span className="text-sm font-medium">{name || '—'}</span>
-            </div>
-          </section>
-          {rows.map(([label, value]) => (
-            <section key={label} className="grid gap-2 border-t border-black/[0.07] py-4 sm:grid-cols-[11rem_minmax(0,1fr)] sm:items-center sm:gap-6">
-              <p className="text-[13px] font-medium">{label}</p>
-              <p className="break-words text-sm">{value || '—'}</p>
-            </section>
-          ))}
+        <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-10 pt-6 sm:px-10">
+          <h3 className="border-b border-black/[0.07] pb-4 text-[17px] font-bold leading-6">Profile details</h3>
+          <div className="mt-6 grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2">
+            {fields.map(([label, value]) => (
+              <DetailField key={label} label={label} value={value || '—'} />
+            ))}
+          </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function DetailField({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <p className="text-[13px] font-medium text-[#212126]/65">{label}</p>
+      <p className="mt-1.5 break-words text-sm font-medium text-[#212126]">{value}</p>
     </div>
   )
 }

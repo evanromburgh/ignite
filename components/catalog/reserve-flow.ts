@@ -6,7 +6,11 @@ import { errorMessageFromUnknown } from '@/lib/errors'
 import { persistReserveSession, resolveReserveAccessToken, shouldWarmAcquireLock } from '@/lib/reserve'
 import type { Unit } from '@/lib/types'
 import { useAuth } from '@/components/auth/auth-provider'
+import { openReservationAgreement } from '@/components/reserve/reservation-terms'
+import { showToast } from '@/components/toast'
 import { showUrgency } from '@/components/urgency'
+
+const RESERVATION_IN_PROGRESS = 'You already have a reservation in progress.'
 
 export function useReserveFlow(fallbackErrorMessage: string, warmAcquireLock = false) {
   const { accessToken } = useAuth()
@@ -33,9 +37,21 @@ export function useReserveFlow(fallbackErrorMessage: string, warmAcquireLock = f
         body: JSON.stringify({ unitId: unit.id }),
       })
       const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : fallbackErrorMessage)
+      if (!response.ok) {
+        const message = typeof body.error === 'string' ? body.error : fallbackErrorMessage
+        if (message === RESERVATION_IN_PROGRESS) {
+          showToast(message)
+          return
+        }
+        throw new Error(message)
+      }
       persistReserveSession(sessionStorage, { unitId: unit.id, token, lockExpiresAt: body.lockExpiresAt })
-      router.push(`/reserve/${unit.unitNumber}`)
+      openReservationAgreement({
+        unit,
+        token,
+        lockExpiresAt: typeof body.lockExpiresAt === 'string' ? body.lockExpiresAt : undefined,
+        accept: () => router.push(`/reserve/${unit.unitNumber}`),
+      })
     } catch (error) {
       showUrgency(errorMessageFromUnknown(error, fallbackErrorMessage))
     } finally {

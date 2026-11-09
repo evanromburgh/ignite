@@ -53,6 +53,7 @@ describe('catalog helpers', () => {
     imageUrl3: null,
     floorplanUrl: null,
     viewers: {},
+    wishlistCount: 0,
     ...patch,
   })
 
@@ -79,10 +80,12 @@ describe('catalog helpers', () => {
       status: 'Available',
       unit_type: 'A1',
       viewers: { fresh: 20_000, stale: 0 },
+      wishlist_count: 4,
       image_key_1: 'gallery/unit_image_1.webp',
     }
     const mapped = mapUnitRow(row, 'https://example.supabase.co', 12_000, 20_000)
     expect(mapped.viewers).toEqual({ fresh: 20_000 })
+    expect(mapped.wishlistCount).toBe(4)
     expect(mapped.imageUrl).toBe('https://example.supabase.co/storage/v1/object/public/units/gallery/unit_image_1.webp')
   })
 })
@@ -124,7 +127,7 @@ describe('email check rate limit', () => {
 
 describe('security migrations', () => {
   const schema = fs.readFileSync('supabase/migrations/20261012120000_schema.sql', 'utf8')
-  const submit = fs.readFileSync('supabase/functions/submit-reservation/index.ts', 'utf8')
+  const submit = fs.readFileSync('lib/checkout.ts', 'utf8')
   const seed = fs.readFileSync('supabase/migrations/20261012120400_seed_content.sql', 'utf8')
 
   it('does not copy the open units update policy', () => {
@@ -136,7 +139,23 @@ describe('security migrations', () => {
   it('charges the settings deposit and ignores a browser amount', () => {
     expect(submit).toContain('reservation_deposit_cents')
     expect(submit).not.toContain('amountInZar')
-    expect(submit).toContain('transaction/initialize')
+    expect(fs.readFileSync('lib/paystack.ts', 'utf8')).toContain('transaction/initialize')
+  })
+
+  it('allows one active unit lock per user', () => {
+    const lock = fs.readFileSync('supabase/migrations/20261106104500_one_active_lock_per_user.sql', 'utf8')
+    const route = fs.readFileSync('app/api/units/acquire-lock/route.ts', 'utf8')
+    expect(lock).toContain('pg_advisory_xact_lock')
+    expect(lock).toContain("status = 'payment_pending'")
+    expect(lock).toContain('lock_expires_at > p_now')
+    expect(lock).toContain('locked_by = NULL')
+    expect(lock).toContain('GRANT EXECUTE ON FUNCTION public.acquire_unit_lock(uuid, uuid, timestamptz) TO service_role')
+    expect(lock).toContain('p_now + make_interval')
+    expect(route).toContain("rpc('acquire_unit_lock'")
+    expect(route).toContain('p_now:')
+    expect(fs.readFileSync('app/api/server-time/route.ts', 'utf8')).not.toContain('database_now_ms')
+    expect(submit).toContain('Your hold on this unit has ended.')
+    expect(submit).toContain('You already have a reservation in progress.')
   })
 
   it('seeds the current documents and a site-plan hotspot', () => {

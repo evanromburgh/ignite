@@ -2,7 +2,7 @@
 -- Ignite Portal - one-shot schema (fresh Supabase project)
 -- Includes final tested model:
 -- - Supabase as source of truth for reservations
--- - Zoho sync queue and idempotent payment/cancel RPCs
+-- - Idempotent payment and cancel RPCs
 -- - No legacy pending_reservations/payment_events/image_url
 -- ============================================================================
 
@@ -183,12 +183,6 @@ CREATE TABLE IF NOT EXISTS public.reservations (
   cancelled_at TIMESTAMPTZ,
   expired_at TIMESTAMPTZ,
   cancel_reason TEXT,
-  zoho_sync_status TEXT NOT NULL DEFAULT 'not_required'
-    CHECK (zoho_sync_status IN ('not_required', 'pending', 'processing', 'synced', 'failed')),
-  zoho_last_error TEXT,
-  zoho_lead_id TEXT,
-  zoho_contact_id TEXT,
-  zoho_reservation_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -206,31 +200,6 @@ DROP POLICY IF EXISTS "Users can view own reservations" ON public.reservations;
 CREATE POLICY "Users can view own reservations"
   ON public.reservations FOR SELECT
   USING (auth.uid() = user_id);
-
--- ----------------------------------------------------------------------------
--- zoho sync jobs
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.zoho_sync_jobs (
-  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  reservation_id UUID NOT NULL UNIQUE REFERENCES public.reservations(id) ON DELETE CASCADE,
-  job_type TEXT NOT NULL DEFAULT 'reservation_paid_sync' CHECK (job_type = 'reservation_paid_sync'),
-  status TEXT NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'processing', 'retry', 'succeeded', 'failed', 'cancelled')),
-  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
-  max_attempts INTEGER NOT NULL DEFAULT 8 CHECK (max_attempts > 0),
-  run_after TIMESTAMPTZ NOT NULL DEFAULT now(),
-  locked_at TIMESTAMPTZ,
-  last_error TEXT,
-  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS zoho_sync_jobs_due_idx
-  ON public.zoho_sync_jobs (status, run_after)
-  WHERE status IN ('pending', 'retry');
-
-ALTER TABLE public.zoho_sync_jobs ENABLE ROW LEVEL SECURITY;
 
 -- ----------------------------------------------------------------------------
 -- Shared updated_at trigger
@@ -266,12 +235,6 @@ EXECUTE FUNCTION public.set_updated_at();
 DROP TRIGGER IF EXISTS reservations_updated_at ON public.reservations;
 CREATE TRIGGER reservations_updated_at
 BEFORE UPDATE ON public.reservations
-FOR EACH ROW
-EXECUTE FUNCTION public.set_updated_at();
-
-DROP TRIGGER IF EXISTS zoho_sync_jobs_updated_at ON public.zoho_sync_jobs;
-CREATE TRIGGER zoho_sync_jobs_updated_at
-BEFORE UPDATE ON public.zoho_sync_jobs
 FOR EACH ROW
 EXECUTE FUNCTION public.set_updated_at();
 
@@ -322,8 +285,7 @@ BEGIN
     paystack_status = COALESCE(NULLIF(p_paystack_payload->'data'->>'status', ''), 'success'),
     paystack_paid_at = COALESCE(NULLIF(p_paystack_payload->'data'->>'paid_at', '')::timestamptz, now()),
     paystack_payload = COALESCE(p_paystack_payload, '{}'::jsonb),
-    paid_at = now(),
-    zoho_sync_status = 'pending'
+    paid_at = now()
   WHERE id = v_res.id
   RETURNING * INTO v_res;
 
@@ -338,17 +300,7 @@ BEGIN
   END
   WHERE id = v_res.user_id;
 
-  INSERT INTO public.zoho_sync_jobs (reservation_id, status, run_after, payload)
-  VALUES (v_res.id, 'pending', now(), jsonb_build_object('source', 'payment-webhook'))
-  ON CONFLICT ON CONSTRAINT zoho_sync_jobs_reservation_id_key
-  DO UPDATE SET
-    status = 'pending',
-    run_after = now(),
-    locked_at = NULL,
-    last_error = NULL,
-    updated_at = now();
-
-  RETURN QUERY SELECT v_res.id, v_res.status, FALSE, TRUE;
+  RETURN QUERY SELECT v_res.id, v_res.status, FALSE, FALSE;
 END;
 $$;
 
@@ -405,21 +357,13 @@ BEGIN
   SET
     status = 'cancelled',
     cancelled_at = now(),
-    cancel_reason = COALESCE(p_reason, 'user_cancelled'),
-    zoho_sync_status = 'not_required'
+    cancel_reason = COALESCE(p_reason, 'user_cancelled')
   WHERE id = v_res.id
   RETURNING * INTO v_res;
 
   UPDATE public.units
   SET lock_expires_at = NULL, locked_by = NULL
   WHERE id = v_res.unit_id;
-
-  UPDATE public.zoho_sync_jobs z
-  SET
-    status = 'cancelled',
-    last_error = 'Reservation cancelled before Zoho sync'
-  WHERE z.reservation_id = v_res.id
-    AND z.status IN ('pending', 'retry', 'processing');
 
   RETURN QUERY SELECT v_res.id, v_res.status, FALSE;
 END;

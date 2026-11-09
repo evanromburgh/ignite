@@ -1,17 +1,17 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { errorMessageFromUnknown, httpStatusFromUnknown } from '@/lib/errors'
 import { depositZar, formatClockMss, formatZarInteger } from '@/lib/format'
-import { publicEnv } from '@/lib/env'
-import { PAYMENT_REFERENCE, PAYSTACK_SCRIPT_URL, RESERVATION_REDIRECTING, RESERVE_LOCK_EXPIRES_AT, RESERVE_TOKEN, RESERVE_UNIT_ID } from '@/lib/reserve'
+import { clearReserveSession, PAYMENT_CANCELLED_MESSAGE, PAYMENT_REFERENCE, PAYSTACK_SCRIPT_URL, RESERVATION_CANCELLED_MESSAGE, RESERVATION_REDIRECTING, RESERVE_LOCK_EXPIRES_AT, RESERVE_TOKEN, RESERVE_UNIT_ID } from '@/lib/reserve'
 import { browserSupabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth/auth-provider'
 import { useLockCountdown, useServerClock } from '@/components/catalog/use-clock'
 import { useUnits } from '@/components/catalog/use-units'
 import { IconBath, IconBed, IconCar, IconLayout, IconSize } from '@/components/icons'
 import { useSettings } from '@/components/settings-context'
+import { showToast } from '@/components/toast'
 
 type PaystackPopup = {
   newTransaction: (options: Record<string, unknown>) => void
@@ -33,18 +33,34 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
   const unit = units.find((item) => item.unitNumber === unitNumber)
   const unitId = unit?.id
   const [expiresAt, setExpiresAt] = useState<number | undefined>(undefined)
+  const [hold, setHold] = useState<'pending' | 'ready' | 'leaving'>('pending')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const timeLeft = useLockCountdown(expiresAt, offsetMs)
+  const timeLeftTick = useLockCountdown(expiresAt, offsetMs)
+  const timeLeft = expiresAt ? Math.max(0, Math.floor((expiresAt - (Date.now() + offsetMs)) / 1000)) : timeLeftTick
+  const sawOwnHold = useRef(false)
+  const leaving = useRef(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const storedUnit = sessionStorage.getItem(RESERVE_UNIT_ID)
     const storedExpiry = sessionStorage.getItem(RESERVE_LOCK_EXPIRES_AT)
-    if (unitId && storedUnit === unitId && storedExpiry) setExpiresAt(Date.parse(storedExpiry))
-  }, [unitId])
+    if (!storedUnit || !storedExpiry) {
+      setHold('leaving')
+      router.replace('/')
+      return
+    }
+    if (loading) return
+    if (!unitId || storedUnit !== unitId) {
+      setHold('leaving')
+      router.replace('/')
+      return
+    }
+    setExpiresAt(Date.parse(storedExpiry))
+    setHold('ready')
+  }, [loading, unitId, router])
 
   useEffect(() => {
-    if (!unitId || !accessToken) return
+    if (!unitId || !accessToken || hold !== 'ready') return
     const controller = new AbortController()
     void fetch('/api/units/acquire-lock', {
       method: 'POST',
@@ -69,7 +85,7 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
       if (err instanceof DOMException && err.name === 'AbortError') return
     })
     return () => controller.abort()
-  }, [unitId, accessToken])
+  }, [unitId, accessToken, hold])
 
   useEffect(() => {
     if (expiresAt && timeLeft === 0 && Date.now() + offsetMs >= expiresAt) {
@@ -77,7 +93,21 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
     }
   }, [expiresAt, timeLeft, offsetMs, router])
 
+  useEffect(() => {
+    if (leaving.current || hold !== 'ready' || !unit || !user) return
+    const holdsThisUnit = unit.lockedBy === user.id && typeof unit.lockExpiresAt === 'number' && unit.lockExpiresAt > Date.now() + offsetMs
+    if (holdsThisUnit) {
+      sawOwnHold.current = true
+      return
+    }
+    if (!sawOwnHold.current || unit.lockedBy === user.id) return
+    clearReserveSession(sessionStorage)
+    showToast('You already have a reservation in progress.')
+    router.replace('/')
+  }, [hold, offsetMs, router, unit, user])
+
   async function cancelHold() {
+    leaving.current = true
     if (!unit || !accessToken) {
       router.replace('/')
       return
@@ -87,6 +117,8 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ unitId: unit.id }),
     }).catch(() => undefined)
+    clearReserveSession(sessionStorage)
+    showToast(RESERVATION_CANCELLED_MESSAGE)
     router.replace('/')
   }
 
@@ -94,7 +126,6 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
     if (!unit || !accessToken || !user?.email) return
     setSubmitting(true)
     setError(null)
-    const { url, anonKey } = publicEnv()
     const payload = {
       unitId: unit.id,
       unitNumber: unit.unitNumber,
@@ -106,7 +137,7 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
       reasonForBuying: user.reasonForBuying ?? '',
     }
     try {
-      const response = await postReservation(url, anonKey, accessToken, payload)
+      const response = await postReservation(accessToken, payload)
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw Object.assign(new Error(typeof body.error === 'string' ? body.error : 'Could not submit reservation.'), { status: response.status })
       const accessCode = typeof body.accessCode === 'string' ? body.accessCode : ''
@@ -122,9 +153,9 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
         onSuccess: async () => {
           const { data } = await browserSupabase().auth.getSession()
           const token = data.session?.access_token ?? accessToken
-          const confirm = await fetch(`${url}/functions/v1/confirm-payment`, {
+          const confirm = await fetch('/api/reservations/confirm', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: anonKey },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ paymentReference }),
           })
           if (!confirm.ok) {
@@ -135,11 +166,14 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
           router.push('/payment-success')
         },
         onCancel: () => {
-          void fetch(`${url}/functions/v1/cancel-reservation`, {
+          leaving.current = true
+          void fetch('/api/reservations/cancel', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, apikey: anonKey },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
             body: JSON.stringify({ paymentReference }),
           })
+          clearReserveSession(sessionStorage)
+          showToast(PAYMENT_CANCELLED_MESSAGE)
           router.replace('/')
         },
       }
@@ -152,8 +186,7 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
     }
   }
 
-  if (loading) return <p className="flex items-center justify-center min-h-[60svh] text-zinc-500">Loading…</p>
-  if (!unit) return <p className="flex items-center justify-center min-h-[60svh] text-zinc-500">This unit is not available.</p>
+  if (hold !== 'ready' || !unit) return null
   const lockedByOther = Boolean(unit.lockedBy && unit.lockedBy !== user?.id && timeLeft > 0)
   const depositLabel = formatZarInteger(depositZar(settings.reservationDepositCents))
 
@@ -168,8 +201,8 @@ export function ReservePage({ unitNumber }: { unitNumber: string }) {
           </div>
           <div className="mt-10 md:mt-0 md:w-[40%] md:flex md:items-center">
             <div className="w-full rounded-3xl px-0 md:px-20 text-center">
-              <h1 className="text-4xl sm:text-5xl font-semibold text-theme-text-primary tracking-tight leading-none mb-6">Reserve Unit {unit.unitNumber}</h1>
-              <p className="text-[12px] sm:text-[13px] text-zinc-500 max-w-[30rem] mx-auto mb-4">Please pay the <span className="font-semibold text-theme-text-primary">non-refundable reservation fee of <span className="whitespace-nowrap">R{depositLabel}</span></span> to secure your unit before the time runs out.</p>
+              <h1 className="text-3xl sm:text-4xl font-semibold text-theme-text-primary tracking-tight leading-none mb-6">Reserve Unit {unit.unitNumber}</h1>
+              <p className="text-[12px] sm:text-[13px] text-zinc-500 max-w-[30rem] mx-auto mb-4">Please pay the <span className="font-semibold text-theme-text-primary whitespace-nowrap">R{depositLabel}</span> reservation fee to secure your unit before this hold is released.</p>
               <p className="text-sm sm:text-base font-semibold text-theme-text-primary mb-5">Selling price: R {formatZarInteger(unit.price)}</p>
               <div className="flex items-center justify-evenly rounded-2xl bg-white py-8 mb-8">
                 <ReserveStat icon={<IconBed className="w-4 h-4" />} label="Bedrooms" value={unit.bedrooms} />
@@ -201,19 +234,19 @@ function ReserveStat({ icon, label, value }: { icon: ReactNode; label: string; v
   )
 }
 
-async function postReservation(url: string, anonKey: string, token: string, payload: Record<string, string>) {
-  const response = await fetch(`${url}/functions/v1/submit-reservation`, {
+async function postReservation(token: string, payload: Record<string, string>) {
+  const response = await fetch('/api/reservations/submit', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: anonKey },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
   })
   if (response.status !== 401) return response
   const { data } = await browserSupabase().auth.refreshSession()
   const fresh = data.session?.access_token
   if (!fresh || fresh === token) return response
-  return fetch(`${url}/functions/v1/submit-reservation`, {
+  return fetch('/api/reservations/submit', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${fresh}`, apikey: anonKey },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${fresh}` },
     body: JSON.stringify(payload),
   })
 }

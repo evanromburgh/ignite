@@ -60,10 +60,9 @@ export function PaymentCancelPage() {
     async function cancel() {
       const reference = localStorage.getItem(PAYMENT_REFERENCE)
       if (reference && accessToken) {
-        const { url, anonKey } = publicEnv()
-        await fetch(`${url}/functions/v1/cancel-reservation`, {
+        await fetch('/api/reservations/cancel', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}`, apikey: anonKey },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
           body: JSON.stringify({ paymentReference: reference }),
         }).catch(() => undefined)
       }

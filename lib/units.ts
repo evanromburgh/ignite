@@ -60,6 +60,7 @@ export function mapUnitRow(
     imageUrl3: resolveUnitsObjectUrl(supabaseUrl, row.image_key_3),
     floorplanUrl: resolveUnitsObjectUrl(supabaseUrl, row.floorplan_key),
     viewers: filterViewersByPresenceTtl(row.viewers ?? {}, nowMs, presenceTtlMs),
+    wishlistCount: Math.max(0, Number(row.wishlist_count ?? 0) || 0),
     lockExpiresAt: parseLockExpiresAt(row.lock_expires_at),
     lockedBy: row.locked_by ?? undefined,
   }

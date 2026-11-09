@@ -9,7 +9,6 @@ REVOKE ALL ON TABLE public.units FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.agents FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.wishlists FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.reservations FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON TABLE public.zoho_sync_jobs FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.project_settings FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.documents FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.site_maps FROM PUBLIC, anon, authenticated;
@@ -32,7 +31,6 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
   public.agents,
   public.wishlists,
   public.reservations,
-  public.zoho_sync_jobs,
   public.project_settings,
   public.documents,
   public.site_maps,

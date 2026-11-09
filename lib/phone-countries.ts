@@ -260,3 +260,12 @@ export function formatPhoneDialCode(dialCode: string): string {
   }
   return `+${dialCode}`
 }
+
+export function splitInternationalPhone(value: string): { country: PhoneCountry; national: string } | null {
+  const digits = value.replace(/\D/g, '')
+  if (!digits) return null
+  const match = [...phoneCountries].sort((a, b) => b.dialCode.length - a.dialCode.length).find((item) => digits.startsWith(item.dialCode))
+  if (!match) return null
+  const national = digits.slice(match.dialCode.length).replace(/^0/, '')
+  return national ? { country: match, national } : null
+}

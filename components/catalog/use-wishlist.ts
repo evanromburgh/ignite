@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { browserSupabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth/auth-provider'
+import { adjustUnitWishlistCount } from '@/components/catalog/use-units'
+import { showToast } from '@/components/toast'
 
 type WishlistState = { ids: string[]; loading: boolean; error: string | null }
 let state: WishlistState = { ids: [], loading: false, error: null }
@@ -53,17 +55,23 @@ export function useWishlist() {
       const { error } = await supabase.from('wishlists').delete().eq('user_id', user.id).eq('unit_id', unitId)
       if (error) {
         emit({ ...state, error: error.message })
+        showToast('Could not update your wishlist')
         return
       }
       emit({ ...state, ids: state.ids.filter((id) => id !== unitId), error: null })
+      adjustUnitWishlistCount(unitId, -1)
+      showToast('Property removed from your wishlist')
       return
     }
     const { error } = await supabase.from('wishlists').insert({ user_id: user.id, unit_id: unitId })
     if (error) {
       emit({ ...state, error: error.message })
+      showToast('Could not update your wishlist')
       return
     }
     emit({ ...state, ids: state.ids.includes(unitId) ? state.ids : [...state.ids, unitId], error: null })
+    adjustUnitWishlistCount(unitId, 1)
+    showToast('Property added to your wishlist')
   }, [user?.id])
 
   return { ...snapshot, toggle }

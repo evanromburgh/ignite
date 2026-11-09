@@ -6,7 +6,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "zoho:refresh-token": "node scripts/zoho-refresh-token.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",

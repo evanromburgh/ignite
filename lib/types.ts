@@ -18,6 +18,7 @@ export type Unit = {
   imageUrl3: string | null
   floorplanUrl: string | null
   viewers: Record<string, number>
+  wishlistCount: number
   lockExpiresAt?: number
   lockedBy?: string
 }
@@ -47,7 +48,10 @@ export type AppUser = {
   lastName: string | null
   phone: string | null
   idPassportNumber: string | null
+  interestedIn: string | null
   reasonForBuying: string | null
+  googleAccount: boolean
+  signupIncomplete: boolean
 }
 
 export type AgentContact = {
@@ -142,6 +146,7 @@ export type UnitRow = {
   image_key_3?: string | null
   floorplan_key?: string | null
   viewers?: Record<string, number | string> | null
+  wishlist_count?: number | null
   lock_expires_at?: string | null
   locked_by?: string | null
 }

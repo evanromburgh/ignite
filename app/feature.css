@@ -25,6 +25,20 @@
   border-radius: 9999px;
   background: white;
 }
+.auth-hero-swiper.hero-swiper.swiper-horizontal > .swiper-pagination.swiper-pagination-bullets {
+  left: auto;
+  right: 2rem;
+  bottom: 2rem;
+  width: auto;
+  justify-content: flex-end;
+  z-index: 20;
+}
+@media (min-width: 1024px) {
+  .auth-hero-swiper.hero-swiper.swiper-horizontal > .swiper-pagination.swiper-pagination-bullets {
+    right: 2.5rem;
+    bottom: 2.5rem;
+  }
+}
 @media (max-width: 639px) {
   .hero-swiper.swiper-horizontal > .swiper-pagination.swiper-pagination-bullets {
     overflow: visible;
@@ -225,6 +239,14 @@
   from { transform: translateY(0); }
   to { transform: translateY(100%); }
 }
+@media (min-width: 640px) {
+  .reservation-agreement-panel {
+    width: 100%;
+    max-width: 56rem;
+    height: auto;
+    max-height: 92vh;
+  }
+}
 .unit-dialog .unit-dialog-panel {
   animation-duration: 700ms;
   animation-fill-mode: both;
@@ -234,10 +256,10 @@
 .unit-dialog .unit-dialog-panel[data-state="closing"] { animation-name: unit-dialog-sheet-out; }
 @keyframes unit-dialog-sheet-in {
   0%, 21.4286% { clip-path: inset(100% 0 0 0); }
-  78.5714%, 100% { clip-path: inset(0); }
+  78.5714%, 100% { clip-path: inset(0px); }
 }
 @keyframes unit-dialog-sheet-out {
-  0%, 21.4286% { clip-path: inset(0); }
+  0%, 21.4286% { clip-path: inset(0px); }
   78.5714%, 100% { clip-path: inset(100% 0 0 0); }
 }
 @media (min-width: 640px) {

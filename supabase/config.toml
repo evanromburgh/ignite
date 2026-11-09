@@ -3,24 +3,3 @@ project_id = "ignite-shell"
 [api]
 enabled = true
 schemas = ["public", "graphql_public"]
-
-[functions.submit-reservation]
-verify_jwt = false
-
-[functions.confirm-payment]
-verify_jwt = false
-
-[functions.payment-webhook]
-verify_jwt = false
-
-[functions.cancel-reservation]
-verify_jwt = false
-
-[functions.release-reservation-lock]
-verify_jwt = false
-
-[functions.create-lead]
-verify_jwt = false
-
-[functions.zoho-sync-worker]
-verify_jwt = false

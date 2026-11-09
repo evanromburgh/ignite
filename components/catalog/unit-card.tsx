@@ -33,18 +33,17 @@ export function UnitCard(props: CardProps) {
   const reserving = props.reservingUnitId === props.unit.id
 
   return (
-    <div className={`group relative grid h-full grid-rows-[repeat(2,minmax(0,1fr))] overflow-hidden select-none cursor-default bg-white border border-zinc-100 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all duration-300 rounded-[0.5rem] ${isAvailable ? 'hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]' : ''}`}>
-      <div className="relative col-start-1 row-start-1 min-h-0 h-full w-full overflow-hidden bg-[#fbfcfd]">
-        {image ? <img src={image} alt={`Unit ${props.unit.unitNumber}`} className={`absolute inset-0 object-cover w-full h-full transition-all duration-500 ease-out scale-[0.85] origin-center ${isAvailable ? 'group-hover:scale-95' : 'opacity-70'}`} /> : null}
-        <div className="absolute inset-0 flex items-start justify-between p-4 sm:p-5 pointer-events-none">
+    <div className={`group relative grid h-full grid-rows-[repeat(2,minmax(0,1fr))] overflow-hidden select-none cursor-default bg-white border border-zinc-100 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow duration-300 rounded-[0.5rem] ${isAvailable ? 'hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]' : ''}`}>
+      <div className="relative col-start-1 row-start-1 min-h-0 h-full w-full">
+        <div className="absolute inset-0 overflow-hidden bg-[#fbfcfd]">
+          {image ? <img src={image} alt={`Unit ${props.unit.unitNumber}`} className={`absolute inset-0 object-cover w-full h-full transition-all duration-500 ease-out scale-[0.85] origin-center ${isAvailable ? 'group-hover:scale-95' : 'opacity-70'}`} /> : null}
+        </div>
+        <div className="absolute inset-0 z-[2] flex items-start justify-between p-4 sm:p-5 pointer-events-none">
           <span className="pointer-events-auto text-lg font-bold text-zinc-900 tracking-tight leading-none drop-shadow-[0_0_8px_rgba(255,255,255,0.9)]">{props.unit.unitNumber}</span>
           {props.myUnits ? (
             <span className="pointer-events-none inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-orange-500 text-white text-[10px] font-bold uppercase tracking-widest shadow-sm">Reserved</span>
           ) : (
-            <button type="button" disabled={!isAvailable} onClick={() => props.onToggleWishlist(props.unit.id)} className={`pointer-events-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest shadow-sm transition-[background-color,color,border-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] disabled:opacity-50 disabled:pointer-events-none disabled:text-zinc-400 disabled:hover:bg-white/95 disabled:hover:text-zinc-400 disabled:hover:border-zinc-300 ${props.wishlisted ? 'border-red-600 bg-red-600 text-white' : 'border-zinc-300 bg-white/95 text-zinc-600 hover:bg-red-600 hover:text-white hover:border-red-600'}`}>
-              <IconHeart className="w-3.5 h-3.5" filled={props.wishlisted} />
-              Wishlist
-            </button>
+            <WishlistButton className="pointer-events-auto" count={props.unit.wishlistCount} wishlisted={props.wishlisted} disabled={!isAvailable} onClick={() => props.onToggleWishlist(props.unit.id)} />
           )}
         </div>
       </div>
@@ -81,6 +80,23 @@ export function UnitCard(props: CardProps) {
         </div>
       </div>
     </div>
+  )
+}
+
+function WishlistButton({ count, wishlisted, disabled, onClick, className = '' }: { count: number; wishlisted: boolean; disabled: boolean; onClick: () => void; className?: string }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} aria-label={count > 0 ? `Wishlist, ${count} saved` : 'Wishlist'} className={`inline-flex h-8 items-center justify-center rounded-full border border-zinc-300 bg-white/95 text-[11px] font-normal leading-none text-zinc-800 shadow-sm transition-[padding,gap,background-color,color,border-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-zinc-400 disabled:opacity-50 disabled:pointer-events-none disabled:text-zinc-400 disabled:hover:border-zinc-300 ${count > 0 ? 'gap-1.5 px-3' : 'gap-0 px-2'} ${className}`}>
+      <IconHeart className="block h-3.5 w-3.5 shrink-0" filled={wishlisted} />
+      <span className={`flex h-3.5 items-center overflow-x-hidden whitespace-nowrap leading-none transition-[max-width,opacity] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${count > 0 ? 'max-w-24 opacity-100' : 'max-w-0 opacity-0'}`}>{count}</span>
+    </button>
+  )
+}
+
+export function WishlistTotal({ count }: { count: number }) {
+  return (
+    <span className="pointer-events-none absolute -top-1.5 -right-1.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold normal-case leading-none tracking-normal text-white tabular-nums ring-2 ring-white">
+      {count > 99 ? '99+' : count}
+    </span>
   )
 }
 
@@ -127,7 +143,7 @@ export function UnitListRow(props: CardProps) {
       </div>
       <div className="hidden sm:grid sm:grid-cols-3 sm:items-center gap-4 sm:gap-0 px-4 sm:px-6 py-6">
         <div className="min-w-0 flex flex-col gap-2 flex-shrink-0 sm:pr-6">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0 leading-tight">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-0 leading-[18px]">
             <span className="text-[14px] font-extrabold tracking-[0.22em] uppercase text-zinc-900">Unit {props.unit.unitNumber}</span>
             <span className="inline-flex items-baseline gap-x-1 text-[12px]">
               {floor ? <span className="font-semibold text-zinc-600">{floor}</span> : null}
@@ -153,9 +169,7 @@ export function UnitListRow(props: CardProps) {
                 <button type="button" disabled={!isAvailable || reserving} onClick={() => props.onReserve(props.unit)} className="h-[46px] min-w-[150px] px-6 text-[12px] font-bold uppercase tracking-widest bg-transparent text-zinc-900 rounded-lg hover:bg-[#18181B] hover:text-white hover:rounded-lg transition-[background-color,color,border-radius] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] disabled:opacity-50 disabled:pointer-events-none disabled:text-zinc-500 disabled:hover:bg-transparent text-center">{reserving ? 'Securing...' : 'Reserve Now'}</button>
               </>
             )}
-            <button type="button" disabled={!isAvailable} onClick={() => props.onToggleWishlist(props.unit.id)} className={`hidden sm:inline-flex h-9 w-9 items-center justify-center rounded-full border border-zinc-300 bg-white/95 text-zinc-600 transition-[background-color,color,border-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:bg-red-600 hover:text-white hover:border-red-600 disabled:opacity-50 disabled:pointer-events-none disabled:text-zinc-400 disabled:hover:bg-white/95 disabled:hover:text-zinc-400 disabled:hover:border-zinc-300 ${props.wishlisted ? '!border-red-600 !bg-red-600 !text-white' : ''}`} aria-label="Toggle wishlist">
-              <IconHeart className="w-4 h-4" filled={props.wishlisted} />
-            </button>
+            <WishlistButton className="hidden shrink-0 self-center sm:inline-flex" count={props.unit.wishlistCount} wishlisted={props.wishlisted} disabled={!isAvailable} onClick={() => props.onToggleWishlist(props.unit.id)} />
           </div>
         </div>
       </div>

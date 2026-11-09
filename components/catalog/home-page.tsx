@@ -7,7 +7,7 @@ import { Swiper, SwiperSlide } from 'swiper/react'
 import 'swiper/css'
 import 'swiper/css/pagination'
 import { DEFAULT_FILTERS, filterUnits, filtersFromSearchParams, searchParamsFromFilters } from '@/lib/filters'
-import { PAYMENT_CANCELLED_TOAST } from '@/lib/reserve'
+import { PAYMENT_CANCELLED_MESSAGE, PAYMENT_CANCELLED_TOAST } from '@/lib/reserve'
 import type { SearchFilters, SiteMapRecord, Unit, ViewMode } from '@/lib/types'
 import { useAuth } from '@/components/auth/auth-provider'
 import { useSettings } from '@/components/settings-context'
@@ -20,6 +20,7 @@ import { UnitDialog } from '@/components/unit/unit-dialog'
 import { useServerClock } from '@/components/catalog/use-clock'
 import { useUnits } from '@/components/catalog/use-units'
 import { useWishlist } from '@/components/catalog/use-wishlist'
+import { showToast } from '@/components/toast'
 
 export function HomePage({ maps }: { maps: SiteMapRecord[] }) {
   const settings = useSettings()
@@ -35,7 +36,6 @@ export function HomePage({ maps }: { maps: SiteMapRecord[] }) {
   const [viewMode, setViewMode] = useState<ViewMode>(initial.viewMode)
   const [plansMounted, setPlansMounted] = useState(initial.viewMode === 'PLANS')
   const [drawer, setDrawer] = useState<'closed' | 'open' | 'closing'>('closed')
-  const [toast, setToast] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const wishlistIds = useMemo(() => new Set(wishlist.ids), [wishlist.ids])
   const displayed = useMemo(() => filterUnits(units, filters, wishlistIds), [units, filters, wishlistIds])
@@ -72,7 +72,7 @@ export function HomePage({ maps }: { maps: SiteMapRecord[] }) {
   useEffect(() => {
     if (sessionStorage.getItem(PAYMENT_CANCELLED_TOAST)) {
       sessionStorage.removeItem(PAYMENT_CANCELLED_TOAST)
-      setToast(true)
+      showToast(PAYMENT_CANCELLED_MESSAGE)
     }
   }, [])
 
@@ -88,12 +88,6 @@ export function HomePage({ maps }: { maps: SiteMapRecord[] }) {
 
   return (
     <div className="min-h-screen">
-      {toast ? (
-        <div className="fixed bottom-4 right-4 z-[100] max-w-[18rem] rounded-lg border border-amber-400 bg-amber-50 text-amber-900 px-3 py-2 flex items-center gap-2 shadow-lg">
-          <p className="text-xs font-medium whitespace-nowrap">Payment cancelled. The unit remains available.</p>
-          <button type="button" aria-label="Dismiss" onClick={() => setToast(false)} className="shrink-0 text-amber-600 hover:text-amber-800 transition-colors duration-500 p-0.5">×</button>
-        </div>
-      ) : null}
       <header className="nav-section dark relative min-h-svh h-svh sm:min-h-screen sm:h-screen overflow-hidden bg-theme-bg">
         <div className="absolute inset-0 z-10">
           <Swiper modules={[Pagination, Autoplay]} className="hero-swiper h-full w-full" pagination={{ clickable: true }} autoplay={{ delay: 5000, disableOnInteraction: false }} loop={settings.heroImageUrls.length > 1} grabCursor speed={500}>

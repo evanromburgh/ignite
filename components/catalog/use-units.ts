@@ -18,6 +18,14 @@ function emit(next: UnitsState) {
   listeners.forEach((listener) => listener())
 }
 
+export function adjustUnitWishlistCount(unitId: string, delta: number) {
+  if (!state.units.some((unit) => unit.id === unitId)) return
+  emit({
+    ...state,
+    units: state.units.map((unit) => unit.id === unitId ? { ...unit, wishlistCount: Math.max(0, unit.wishlistCount + delta) } : unit),
+  })
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
   return () => listeners.delete(listener)

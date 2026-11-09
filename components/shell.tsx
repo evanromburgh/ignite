@@ -3,12 +3,14 @@
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { initialsFromName } from '@/lib/format'
+import { releaseReserveLockOnLeave } from '@/lib/reserve'
 import { useAuth } from '@/components/auth/auth-provider'
 import { PresenceBadge } from '@/components/presence'
 import { ProfileDrawer } from '@/components/profile/profile-page'
 import { useSettings } from '@/components/settings-context'
+import { ReservationAgreementDialog } from '@/components/reserve/reservation-terms'
 import { UrgencyStrip } from '@/components/urgency'
 
 const AuthPortal = dynamic(() => import('@/components/auth/auth-portal').then((mod) => mod.AuthPortal), { ssr: false })
@@ -24,17 +26,52 @@ export function Shell({ children }: { children: ReactNode }) {
   const settings = useSettings()
   const { user, authLoading, logout } = useAuth()
   const pathname = usePathname()
+  const pathnameRef = useRef(pathname)
   const [menu, setMenu] = useState<'closed' | 'open' | 'closing'>('closed')
   const [userMenu, setUserMenu] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
-  const [darkNav, setDarkNav] = useState(pathname === '/')
+  const [pastHero, setPastHero] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [navPath, setNavPath] = useState(pathname)
+  const signedInUserId = user?.id ?? null
+  const previousSignedInUserId = useRef<string | null | undefined>(undefined)
+  if (navPath !== pathname) {
+    setNavPath(pathname)
+    setScrolled(false)
+    setPastHero(false)
+  }
+  const darkNav = pathname === '/' && !pastHero
 
   useEffect(() => {
     setMenu('closed')
     setProfileOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    if (authLoading) return
+    const previous = previousSignedInUserId.current
+    previousSignedInUserId.current = signedInUserId
+    if (previous === undefined || previous === signedInUserId) return
+    setUserMenu(false)
+    setMenu('closed')
+    setProfileOpen(false)
+    setPastHero(false)
+    setScrolled(false)
+    setSigningOut(false)
+    window.scrollTo(0, 0)
+  }, [authLoading, signedInUserId])
+
+  useEffect(() => {
+    const previous = pathnameRef.current
+    pathnameRef.current = pathname
+    if (previous.startsWith('/reserve') && !pathname.startsWith('/reserve')) releaseReserveLockOnLeave()
+  }, [pathname])
+
+  useEffect(() => {
+    window.addEventListener('pagehide', releaseReserveLockOnLeave)
+    return () => window.removeEventListener('pagehide', releaseReserveLockOnLeave)
+  }, [])
 
   useEffect(() => {
     if (menu !== 'closing') return
@@ -67,27 +104,40 @@ export function Shell({ children }: { children: ReactNode }) {
     setProfileOpen(true)
   }
 
+  useLayoutEffect(() => {
+    if (pathname !== '/' || pathnameRef.current === pathname) return
+    window.scrollTo(0, 0)
+  }, [pathname])
+
   useEffect(() => {
+    let settled = pathname !== '/' || window.scrollY <= 20
     const update = () => {
-      setScrolled(window.scrollY > 20)
-      if (pathname !== '/') {
-        setDarkNav(false)
-        return
+      const y = window.scrollY
+      if (pathname === '/' && !settled) {
+        if (y > 20) {
+          setScrolled(false)
+          setPastHero(false)
+          return
+        }
+        settled = true
       }
+      setScrolled(y > 20)
+      if (pathname !== '/') return
       const hero = document.querySelector<HTMLElement>('.nav-section.dark')
       const navHeight = document.querySelector('nav')?.clientHeight ?? 96
-      if (!hero) {
-        setDarkNav(true)
+      if (!hero || hero.offsetHeight < navHeight) {
+        setPastHero(false)
         return
       }
-      setDarkNav(window.scrollY + navHeight <= hero.offsetTop + hero.offsetHeight)
+      setPastHero(y + navHeight > hero.offsetTop + hero.offsetHeight)
     }
     update()
     window.addEventListener('scroll', update, { passive: true })
     window.addEventListener('resize', update)
     const timer = window.setInterval(() => {
       update()
-      if (pathname !== '/' || document.querySelector('.nav-section.dark')) window.clearInterval(timer)
+      const hero = document.querySelector<HTMLElement>('.nav-section.dark')
+      if (pathname !== '/' || (hero && hero.offsetHeight > 0 && settled)) window.clearInterval(timer)
     }, 200)
     return () => {
       window.removeEventListener('scroll', update)
@@ -104,6 +154,7 @@ export function Shell({ children }: { children: ReactNode }) {
     )
   }
   if (!user) return <AuthPortal />
+  if (user.signupIncomplete) return <AuthPortal />
 
   const linkClass = (active: boolean) => {
     if (darkNav) return active ? 'text-white font-semibold' : 'text-white font-normal'
@@ -116,6 +167,9 @@ export function Shell({ children }: { children: ReactNode }) {
       : 'bg-transparent border-b border-theme-border'
 
   async function signOut() {
+    setUserMenu(false)
+    setMenu('closed')
+    setProfileOpen(false)
     setSigningOut(true)
     try { await logout() } finally { setSigningOut(false) }
   }
@@ -123,19 +177,20 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-theme-bg text-theme-text-primary relative">
       <div className="min-h-screen flex flex-col">
-        <nav className={`fixed top-0 left-0 right-0 z-[170] lg:z-[150] flex flex-col transition-all duration-300 ${navBackground} ${darkNav ? 'text-white' : 'text-[#18181B]'}`}>
+        <nav className={`fixed top-0 left-0 right-0 z-[170] lg:z-[150] flex flex-col transition-[background-color,box-shadow] duration-300 ${navBackground} ${darkNav ? 'text-white' : 'text-[#18181B]'}`}>
           <div className="pl-5 pr-5 sm:pl-8 sm:pr-8 md:px-[5rem] h-16 sm:h-24 flex items-center justify-between">
             <Link href="/" className="flex items-center shrink-0" onClick={closeMenu}>
-              <img src={darkNav ? settings.logoLightUrl : settings.logoDarkUrl} alt={settings.brandName} className="h-5 sm:h-6 w-auto" />
+              <img src={settings.logoLightUrl} alt={darkNav ? settings.brandName : ''} className={`h-5 sm:h-6 w-auto ${darkNav ? '' : 'hidden'}`} />
+              <img src={settings.logoDarkUrl} alt={darkNav ? '' : settings.brandName} className={`h-5 sm:h-6 w-auto ${darkNav ? 'hidden' : ''}`} />
             </Link>
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="hidden lg:flex items-center space-x-10 mr-6">
                 {NAV.map((item) => (
-                  <Link key={item.href} href={item.href} className={`h-[46px] px-2 text-[12px] uppercase tracking-[0.15em] transition-colors duration-500 flex items-center ${linkClass(pathname === item.href)}`}>{item.label}</Link>
+                  <Link key={item.href} href={item.href} className={`h-[46px] px-2 text-[12px] uppercase tracking-[0.15em] flex items-center ${linkClass(pathname === item.href)}`}>{item.label}</Link>
                 ))}
               </div>
               <div className="relative hidden lg:block">
-                <button type="button" title="Profile Settings" className={`w-9 h-9 sm:w-[46px] sm:h-[46px] flex items-center justify-center rounded-full text-[10px] font-black transition-[background-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${darkNav ? 'bg-white text-[#18181B]' : 'bg-[#18181B] text-white hover:bg-[#27272a]'}`} onClick={() => setUserMenu((value) => !value)}>{initialsFromName(user.displayName?.trim() || user.email || '', 2)}</button>
+                <button type="button" title="Profile Settings" className={`w-9 h-9 sm:w-[46px] sm:h-[46px] flex items-center justify-center rounded-full text-[10px] font-black ${darkNav ? 'bg-white text-[#18181B]' : 'bg-[#18181B] text-white hover:bg-[#27272a]'}`} onClick={() => setUserMenu((value) => !value)}>{initialsFromName(user.displayName?.trim() || user.email || '', 2)}</button>
                 {userMenu ? (
                   <div className="absolute top-full right-0 mt-3 sm:mt-[1.3rem] w-64 bg-theme-overlay-dropdown rounded-xl p-2 border border-theme-border shadow-xl z-[200]">
                     <button type="button" className="w-full flex items-center px-4 h-12 rounded-lg text-theme-text-muted hover:bg-zinc-100 hover:text-theme-text-primary transition-[background-color,color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] group mb-1" onClick={openProfile}>
@@ -180,6 +235,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <main className="w-full pt-0 pb-[4rem] sm:pb-0 flex-1">{children}</main>
         <PresenceBadge />
         <UrgencyStrip />
+        <ReservationAgreementDialog />
         <footer className="footer-main relative bg-[#18181B] text-white pl-5 pr-5 sm:pl-8 sm:pr-8 md:px-24 pt-16 sm:pt-20 pb-[4.25rem]">
           <div className="footer-content flex flex-col gap-14 lg:grid lg:grid-cols-2 lg:items-start lg:gap-20 pb-[4rem] sm:pb-16">
             <img src={settings.logoLightUrl} alt={settings.brandName} className="h-6 w-auto" />

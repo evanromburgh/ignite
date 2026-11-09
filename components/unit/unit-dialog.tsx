@@ -76,6 +76,7 @@ function UnitDialogPanel({ unit, phase, offsetMs, wishlisted, reservingUnitId, o
   const floorplanIndex = unit.floorplanUrl ? images.length - 1 : -1
   const lockedByOther = Boolean(unit.lockedBy && unit.lockExpiresAt && unit.lockedBy !== user?.id && timeLeft > 0)
   const available = unit.status === 'Available' && !lockedByOther
+  const others = Math.max(0, unit.wishlistCount - (wishlisted ? 1 : 0))
   onCloseRef.current = onClose
 
   useEffect(() => {
@@ -119,21 +120,28 @@ function UnitDialogPanel({ unit, phase, offsetMs, wishlisted, reservingUnitId, o
     <div className="unit-dialog fixed inset-0 z-[4000] flex items-stretch justify-center sm:items-center sm:p-6" data-state={state}>
       <div className="mobile-menu-overlay absolute inset-0 bg-black/50" data-state={state} />
       <button type="button" tabIndex={-1} className="absolute inset-0 cursor-default" aria-label="Close unit details" onClick={onClose} />
-      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="unit-dialog-title" tabIndex={-1} className="unit-dialog-panel relative h-full w-full overflow-y-auto bg-theme-bg outline-none sm:h-auto sm:max-h-[92vh] sm:max-w-7xl sm:rounded-[0.5rem] sm:shadow-2xl" data-state={state} onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="absolute right-12 top-12 z-10 flex h-8 w-8 items-start justify-end text-zinc-500 transition-colors duration-500 hover:text-zinc-900" aria-label="Close" onClick={onClose}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby="unit-dialog-title" tabIndex={-1} className="unit-dialog-panel relative h-full w-full overflow-x-hidden overflow-y-auto bg-theme-bg outline-none sm:h-auto sm:max-h-[92vh] sm:max-w-7xl sm:rounded-[0.5rem] sm:shadow-2xl" data-state={state} onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="absolute right-5 top-5 z-10 flex h-8 w-8 items-start justify-end text-zinc-500 transition-colors duration-500 hover:text-zinc-900 sm:right-12 sm:top-12" aria-label="Close" onClick={onClose}>
           <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6l-12 12" /></svg>
         </button>
-        <div inert={lightbox || undefined} className="p-12">
-          <div className="flex flex-col-reverse items-center gap-12 md:flex-row-reverse">
-            <div className="min-w-0 md:flex-1">
-              {unit.status !== 'Available' ? <span className={`mb-4 inline-flex text-[10px] font-bold uppercase px-3 py-1 rounded-full ${unit.status === 'Sold' ? 'border border-red-500 text-red-400' : 'bg-orange-500 text-white'}`}>{unit.status}</span> : null}
-              <div>
+        {others > 0 ? (
+          <p className="pointer-events-none absolute inset-x-12 bottom-12 z-10 hidden text-center text-[11px] text-zinc-500 md:flex md:flex-row-reverse md:gap-12">
+            <span className="md:flex-1">Wishlisted by {others} {others === 1 ? 'other' : 'others'}</span>
+            <span className="hidden md:block md:flex-1" aria-hidden="true" />
+          </p>
+        ) : null}
+        <div inert={lightbox || undefined} className="p-5 pt-14 sm:p-12">
+          <div className="flex w-full min-w-0 flex-col gap-8 md:flex-row-reverse md:items-center md:gap-12">
+            <div className="contents md:flex md:min-w-0 md:w-auto md:flex-1 md:flex-col">
+              <div className="order-1 md:order-none">
+                {unit.status !== 'Available' ? <span className={`mb-4 inline-flex text-[10px] font-bold uppercase px-3 py-1 rounded-full ${unit.status === 'Sold' ? 'border border-red-500 text-red-400' : 'bg-orange-500 text-white'}`}>{unit.status}</span> : null}
                 <p id="unit-dialog-title" className="text-[1.5rem] font-black leading-none tracking-tight text-theme-text-primary">Unit {unit.unitNumber}</p>
-                <p className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-black text-theme-text-primary leading-none">R {formatZarInteger(unit.price)}</p>
+                <p className="mt-3 max-w-full text-4xl sm:text-5xl lg:text-6xl font-black text-theme-text-primary leading-none">R {formatZarInteger(unit.price)}</p>
                 {unit.floor || unit.direction ? <p className="mt-3 text-sm text-zinc-500">{[unit.floor ? `${unit.floor} floor` : null, unit.direction ? `${unit.direction} facing` : null].filter(Boolean).join(' · ')}</p> : null}
               </div>
-              <div className="mt-8 border border-theme-border rounded-2xl bg-theme-surface/60 py-8">
-                <div className="flex items-center justify-evenly">
+              <div className="order-3 md:order-none">
+              <div className="border border-theme-border rounded-2xl bg-theme-surface/60 py-5 sm:py-8 md:mt-8">
+                <div className="flex w-full items-center justify-evenly">
                   <Tip icon={<IconBed className="w-4 h-4 text-zinc-700" />} label="Bedrooms" value={unit.bedrooms} />
                   <Tip icon={<IconBath className="w-4 h-4 text-zinc-700" />} label="Bathrooms" value={unit.bathrooms} />
                   <Tip icon={<IconCar className="w-4 h-4 text-zinc-700" />} label="Parking" value={unit.parking || 1} />
@@ -152,12 +160,14 @@ function UnitDialogPanel({ unit, phase, offsetMs, wishlisted, reservingUnitId, o
                   <button type="button" disabled={!available || reservingUnitId === unit.id} onClick={() => onReserve(unit)} className="w-full sm:w-auto sm:flex-[0.65] sm:min-w-[130px] h-12 flex items-center justify-center bg-[#18181B] text-white font-black text-[11px] uppercase tracking-wider rounded-lg hover:bg-[#27272a] transition-[background-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] disabled:opacity-50 disabled:cursor-not-allowed">{lockedByOther ? 'Reservation in Progress' : reservingUnitId === unit.id ? 'Securing...' : 'Reserve unit'}</button>
                   <button type="button" disabled={!available} onClick={() => onToggleWishlist(unit.id)} className={`w-full sm:w-auto sm:flex-[0.35] sm:min-w-[170px] h-12 inline-flex items-center justify-center gap-1.5 border font-black text-[11px] uppercase tracking-wider rounded-lg shadow-sm transition-[background-color,color,border-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] disabled:opacity-50 disabled:cursor-not-allowed ${wishlisted ? 'border-red-600 bg-red-600 text-white' : 'bg-theme-bg border-zinc-300 text-zinc-600 hover:bg-red-600 hover:text-white hover:border-red-600 disabled:hover:bg-theme-bg disabled:hover:text-zinc-600 disabled:hover:border-zinc-300'}`}>
                     <IconHeart className="w-3.5 h-3.5" filled={wishlisted} />
-                    {wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                    Wishlist
                   </button>
                 </div>
+                {others > 0 ? <p className="mt-3 text-center text-[11px] text-zinc-500 md:hidden">Wishlisted by {others} {others === 1 ? 'other' : 'others'}</p> : null}
+              </div>
             </div>
-            <div className="min-w-0 space-y-4 md:flex-1">
-              <div className="relative w-full overflow-hidden rounded-[0.5rem] bg-theme-bg aspect-[3/2]">
+            <div className="order-2 min-w-0 w-full space-y-4 md:order-none md:w-auto md:flex-1">
+              <div className="relative aspect-[3/2] w-full max-w-full overflow-hidden rounded-[0.5rem] bg-theme-bg">
                 {images.length > 0 ? (
                   <Swiper modules={[Autoplay]} className="h-full w-full" slidesPerView={1} autoplay={images.length > 1 ? { delay: 5000, disableOnInteraction: false } : false} onSwiper={setSwiper} onSlideChange={(instance) => setActive(instance.realIndex)}>
                     {images.map((image, index) => (
