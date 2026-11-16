@@ -8,9 +8,12 @@ type SignupLead = {
   idPassport: string
 }
 
+const LEAD_ASSIGNMENT_RULE_ID = '7602494000003847001'
+
 export type ZohoLeadLookup = {
   zohoLeadId: string
   created: boolean
+  ownerId: string | null
 }
 
 type ZohoSession = {
@@ -65,10 +68,15 @@ function zohoRecordId(value: string) {
 function ownerId(data: unknown) {
   const row = Array.isArray(data) ? data[0] : null
   if (!row || typeof row !== 'object') return null
-  const owner = (row as Record<string, unknown>).Owner
-  if (!owner || typeof owner !== 'object') return null
-  const id = text((owner as Record<string, unknown>).id)
-  return id && /^\d{5,30}$/.test(id) ? id : null
+  const record = row as Record<string, unknown>
+  const owner = record.Owner ?? record.owner
+  if (owner && typeof owner === 'object') {
+    const id = text((owner as Record<string, unknown>).id)
+    if (id && /^\d{5,30}$/.test(id)) return id
+  }
+  const details = record.details
+  if (!details || typeof details !== 'object' || details === owner) return null
+  return ownerId([details])
 }
 
 export async function readZohoLeadOwnerId(leadId: string): Promise<string | null> {
@@ -123,7 +131,7 @@ export async function findOrCreateZohoLead(input: SignupLead): Promise<ZohoLeadL
     if (!search.ok) throw new Error(`Zoho lead search failed (${search.status})`)
     const payload = await search.json().catch(() => null) as { data?: unknown } | null
     const existingId = leadId(payload?.data)
-    if (existingId) return { zohoLeadId: existingId, created: false }
+    if (existingId) return { zohoLeadId: existingId, created: false, ownerId: null }
   }
 
   const lead: Record<string, string> = {
@@ -145,12 +153,24 @@ export async function findOrCreateZohoLead(input: SignupLead): Promise<ZohoLeadL
   const created = await fetch(`${base}/Leads`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ data: [lead] }),
+    body: JSON.stringify({ data: [lead], lar_id: LEAD_ASSIGNMENT_RULE_ID }),
   })
   const payload = await created.json().catch(() => null) as { data?: unknown } | null
   const zohoLeadId = leadId(payload?.data)
   if (!zohoLeadId) throw new Error(`Zoho lead create failed (${created.status})`)
   const row = Array.isArray(payload?.data) ? payload.data[0] as { code?: unknown; status?: unknown } : null
   const duplicate = row?.code === 'DUPLICATE_DATA' || row?.status === 'error'
-  return { zohoLeadId, created: created.ok && !duplicate }
+  const createdLead = created.ok && !duplicate
+  let ownerIdValue: string | null = null
+  if (createdLead) {
+    ownerIdValue = ownerId(payload?.data)
+    if (!ownerIdValue) {
+      try {
+        ownerIdValue = await readZohoLeadOwnerId(zohoLeadId)
+      } catch {
+        ownerIdValue = null
+      }
+    }
+  }
+  return { zohoLeadId, created: createdLead, ownerId: ownerIdValue }
 }

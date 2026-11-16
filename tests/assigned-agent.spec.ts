@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { agentContactFromRow, resolveFromAssignment, type AgentAssignment, type AgentAssignmentStore } from '@/lib/assigned-agent'
+import { agentContactFromRow, assignAgentFromZohoUser, resolveFromAssignment, type AgentAssignment, type AgentAssignmentStore } from '@/lib/assigned-agent'
 import type { AgentContact } from '@/lib/types'
 
 const erin: AgentContact = {
@@ -59,6 +59,20 @@ describe('assigned agent', () => {
       pending: false,
     })
     expect(readOwnerId).not.toHaveBeenCalled()
+  })
+
+  it('saves the agent that matches a Zoho user id from the lead response', async () => {
+    const saved = store({
+      findActiveAgentByZohoUser: vi.fn().mockResolvedValue(erin),
+      saveAgent: vi.fn().mockResolvedValue(true),
+    })
+
+    await expect(assignAgentFromZohoUser('user-1', '5843104000000311031', saved)).resolves.toEqual({
+      agent: erin,
+      pending: false,
+    })
+    expect(saved.findActiveAgentByZohoUser).toHaveBeenCalledWith('5843104000000311031')
+    expect(saved.saveAgent).toHaveBeenCalledWith('user-1', erin.id)
   })
 
   it('saves the agent that matches the lead owner', async () => {

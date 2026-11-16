@@ -47,6 +47,23 @@ export function agentContactFromRow(value: unknown): AgentContact | null {
   }
 }
 
+export async function assignAgentFromZohoUser(
+  userId: string,
+  ownerId: string | null,
+  store: AgentAssignmentStore,
+): Promise<AssignedAgentResult | null> {
+  const zohoId = zohoUserId(ownerId)
+  if (!zohoId) return null
+  const agent = await store.findActiveAgentByZohoUser(zohoId)
+  if (!agent) return null
+
+  const saved = await store.saveAgent(userId, agent.id)
+  if (saved) return { agent, pending: false }
+  const latest = await store.readAssignment(userId)
+  if (latest.agentId) return { agent: latest.agent, pending: false }
+  return { agent: null, pending: true }
+}
+
 export async function resolveFromAssignment(
   userId: string,
   current: AgentAssignment,
@@ -57,14 +74,7 @@ export async function resolveFromAssignment(
   const leadId = current.zohoLeadId?.trim() ?? ''
   if (!leadId) return { agent: null, pending: false }
 
-  const ownerId = zohoUserId(await readOwnerId(leadId))
-  if (!ownerId) return { agent: null, pending: true }
-  const agent = await store.findActiveAgentByZohoUser(ownerId)
-  if (!agent) return { agent: null, pending: true }
-
-  const saved = await store.saveAgent(userId, agent.id)
-  if (saved) return { agent, pending: false }
-  const latest = await store.readAssignment(userId)
-  if (latest.agentId) return { agent: latest.agent, pending: false }
+  const matched = await assignAgentFromZohoUser(userId, await readOwnerId(leadId), store)
+  if (matched && !matched.pending) return matched
   return { agent: null, pending: true }
 }

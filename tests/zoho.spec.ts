@@ -40,6 +40,7 @@ describe('Zoho signup lead', () => {
     await expect(findOrCreateZohoLead(lead)).resolves.toEqual({
       zohoLeadId: 'lead-existing',
       created: false,
+      ownerId: null,
     })
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(String(fetchMock.mock.calls[1][0])).toContain('Leads/search?email=amina%40example.com')
@@ -55,10 +56,12 @@ describe('Zoho signup lead', () => {
     await expect(findOrCreateZohoLead(lead)).resolves.toEqual({
       zohoLeadId: 'lead-new',
       created: true,
+      ownerId: null,
     })
     const createCall = fetchMock.mock.calls[2]
     expect(createCall[1].method).toBe('POST')
     expect(JSON.parse(createCall[1].body)).toEqual({
+      lar_id: '7602494000003847001',
       data: [{
         First_Name: 'Amina',
         Last_Name: 'Naidoo',
@@ -70,6 +73,65 @@ describe('Zoho signup lead', () => {
         Reason_For_Buying: 'To Invest',
         ID_Passport_Number: '8001015009087',
       }],
+    })
+  })
+
+  it('returns the owner assigned by the lead assignment rule', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: 'token', expires_in: 3600 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(201, {
+        data: [{
+          status: 'success',
+          details: {
+            id: '7602494000001234567',
+            Owner: { id: '7602494000000311031', name: 'Erin Allen' },
+          },
+        }],
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(findOrCreateZohoLead(lead)).resolves.toEqual({
+      zohoLeadId: '7602494000001234567',
+      created: true,
+      ownerId: '7602494000000311031',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('reads the created lead when the assignment response omits the owner', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: 'token', expires_in: 3600 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(201, {
+        data: [{ status: 'success', details: { id: '7602494000001234567' } }],
+      }))
+      .mockResolvedValueOnce(jsonResponse(200, {
+        data: [{ Owner: { id: '7602494000000311031', name: 'Erin Allen' } }],
+      }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(findOrCreateZohoLead(lead)).resolves.toEqual({
+      zohoLeadId: '7602494000001234567',
+      created: true,
+      ownerId: '7602494000000311031',
+    })
+    expect(String(fetchMock.mock.calls[3][0])).toBe('https://www.zohoapis.com/crm/v2/Leads/7602494000001234567?fields=Owner')
+  })
+
+  it('keeps the new lead when the owner read fails', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: 'token', expires_in: 3600 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(jsonResponse(201, {
+        data: [{ status: 'success', details: { id: '7602494000001234567' } }],
+      }))
+      .mockResolvedValueOnce(jsonResponse(401, { code: 'INVALID_TOKEN' })))
+
+    await expect(findOrCreateZohoLead(lead)).resolves.toEqual({
+      zohoLeadId: '7602494000001234567',
+      created: true,
+      ownerId: null,
     })
   })
 
@@ -89,6 +151,7 @@ describe('Zoho signup lead', () => {
     await expect(findOrCreateZohoLead(lead)).resolves.toEqual({
       zohoLeadId: 'lead-duplicate',
       created: false,
+      ownerId: null,
     })
   })
 })

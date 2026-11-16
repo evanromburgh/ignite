@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { jsonError } from '@/lib/api'
+import { assignAgentFromZohoUser } from '@/lib/assigned-agent'
+import { createAgentAssignmentStore } from '@/lib/assigned-agent-store'
 import { createServiceClient } from '@/lib/supabase'
 import { findOrCreateZohoLead } from '@/lib/zoho'
 
@@ -54,6 +56,7 @@ export async function POST(request: Request) {
 
   let zohoLeadId: string | null = null
   let zohoLeadCreated = false
+  let ownerId: string | null = null
   const { data: profile, error: leadReadErr } = await supabase
     .from('profiles')
     .select('zoho_lead_id')
@@ -67,16 +70,27 @@ export async function POST(request: Request) {
       const lead = await findOrCreateZohoLead({ firstName, lastName, email, phone, interestedIn, reasonForBuying, idPassport })
       zohoLeadId = lead.zohoLeadId
       zohoLeadCreated = lead.created
+      ownerId = lead.ownerId
       const { error: leadWriteErr } = await supabase.from('profiles').update({ zoho_lead_id: zohoLeadId }).eq('id', userId)
       if (leadWriteErr) {
         console.error('post-signup zoho id save failed', leadWriteErr.message)
         zohoLeadId = null
         zohoLeadCreated = false
+        ownerId = null
       }
     } catch (error) {
       console.error('post-signup zoho sync failed', error instanceof Error ? error.message : error)
       zohoLeadId = null
       zohoLeadCreated = false
+      ownerId = null
+    }
+  }
+
+  if (zohoLeadCreated && zohoLeadId && ownerId) {
+    try {
+      await assignAgentFromZohoUser(userId, ownerId, createAgentAssignmentStore(supabase))
+    } catch (error) {
+      console.error('post-signup agent assignment failed', error instanceof Error ? error.message : error)
     }
   }
 
