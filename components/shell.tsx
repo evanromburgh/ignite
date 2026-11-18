@@ -146,7 +146,7 @@ export function Shell({ children }: { children: ReactNode }) {
     }
   }, [pathname])
 
-  if (authLoading) {
+  if (authLoading || (user && !user.profileLoaded)) {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#18181B] text-white">
         <img src={settings.logoLightUrl} alt={settings.brandName} className="h-7 w-auto sm:h-11" />

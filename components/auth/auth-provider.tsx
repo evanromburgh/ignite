@@ -162,9 +162,10 @@ function mapUser(supabaseUser: SupabaseUser | null): AppUser | null {
     interestedIn: null,
     reasonForBuying: null,
     googleAccount,
+    profileLoaded: !googleAccount,
     signupIncomplete: false,
   }
-  return { ...next, signupIncomplete: googleAccount && !profileIsComplete(next) }
+  return next
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -190,6 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           idPassportNumber: current.idPassportNumber,
           interestedIn: current.interestedIn,
           reasonForBuying: current.reasonForBuying,
+          profileLoaded: current.profileLoaded,
           signupIncomplete: current.signupIncomplete,
         }
       })
@@ -200,9 +202,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', next.id)
         .single()
         .then(({ data }) => {
-          if (!active || !data) return
+          if (!active) return
           setUser((current) => {
             if (!current || current.id !== next.id) return current
+            if (!data) return { ...current, profileLoaded: true, signupIncomplete: current.googleAccount }
             const merged = {
               ...current,
               role: data.role === 'admin' ? 'admin' as const : 'user' as const,
@@ -212,6 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               firstName: (data.first_name as string | null)?.trim() || current.firstName,
               lastName: (data.last_name as string | null)?.trim() || current.lastName,
               phone: (data.phone as string | null)?.trim() || current.phone,
+              profileLoaded: true,
             }
             return { ...merged, signupIncomplete: merged.googleAccount && !profileIsComplete(merged) }
           })
@@ -331,9 +335,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         idPassportNumber: input.idPassport,
         interestedIn: input.interestedIn,
         reasonForBuying: input.reasonForBuying,
+        profileLoaded: true,
         signupIncomplete: false,
       } : current)
-      await syncSignup(user.id, input, accessToken)
+      void syncSignup(user.id, input, accessToken)
     },
     async login(email, password) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })

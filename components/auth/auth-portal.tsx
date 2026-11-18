@@ -103,11 +103,11 @@ export function AuthPortal() {
   const strength = useMemo(() => passwordStrength(password, settings.passwordMinLength), [password, settings.passwordMinLength])
 
   useEffect(() => {
-    if (!googleUser?.email) return
+    if (!auth.user?.signupIncomplete || !auth.user.email) return
     setIntent('signup')
     setStep((current) => current === 1 ? 2 : current)
-    setEmail((current) => current || googleUser.email || '')
-  }, [googleUser])
+    setEmail((current) => current || auth.user?.email || '')
+  }, [auth.user])
 
   useEffect(() => {
     if (!countryOpen) return

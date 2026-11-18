@@ -10,6 +10,7 @@ import { browserSupabase } from '@/lib/supabase'
 import type { AgentContact } from '@/lib/types'
 
 const OWNER_RETRY_MS = [4_000, 8_000, 16_000]
+const SAVED_RETRY_MS = [1_500, 2_500, 4_000, 6_000]
 
 type ChatPhase = 'off' | 'from' | 'in' | 'idle' | 'leave' | 'out'
 
@@ -105,12 +106,16 @@ export function ChatWidget() {
       }
     }
 
+    let remote: 'found' | 'final' | 'pending' = 'pending'
+
     const run = async (retry: number) => {
       const saved = await loadSaved()
-      if (cancelled || saved !== 'pending') return
-      const resolved = await resolveRemote()
-      if (cancelled || resolved !== 'pending') return
-      const delay = OWNER_RETRY_MS[retry]
+      if (cancelled || saved === 'found') return
+      if (retry === 0 || remote === 'pending') {
+        remote = await resolveRemote()
+        if (cancelled || remote === 'found') return
+      }
+      const delay = remote === 'pending' ? OWNER_RETRY_MS[retry] : SAVED_RETRY_MS[retry]
       if (delay === undefined) return
       timer = window.setTimeout(() => { void run(retry + 1) }, delay)
     }

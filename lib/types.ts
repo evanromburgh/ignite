@@ -51,6 +51,7 @@ export type AppUser = {
   interestedIn: string | null
   reasonForBuying: string | null
   googleAccount: boolean
+  profileLoaded: boolean
   signupIncomplete: boolean
 }
 
