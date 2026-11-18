@@ -71,7 +71,7 @@ describe('Zoho signup lead', () => {
         Lead_Source: 'Property Portal',
         Lead_Status: 'New Lead',
         Reason_For_Buying: 'To Invest',
-        ID_Passport_Number: '8001015009087',
+        ID_Number: '8001015009087',
       }],
     })
   })

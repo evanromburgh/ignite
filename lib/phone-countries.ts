@@ -175,7 +175,7 @@ export const phoneCountries: PhoneCountry[] = [
   { dialCode: '674', countryCode: 'NR' },
   { dialCode: '977', countryCode: 'NP' },
   { dialCode: '31', countryCode: 'NL' },
-  { dialCode: '599', countryCode: 'AN' },
+  { dialCode: '599', countryCode: 'CW' },
   { dialCode: '687', countryCode: 'NC' },
   { dialCode: '64', countryCode: 'NZ' },
   { dialCode: '505', countryCode: 'NI' },
@@ -260,6 +260,14 @@ export function formatPhoneDialCode(dialCode: string): string {
   }
   return `+${dialCode}`
 }
+
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
+
+export function phoneCountryName(countryCode: string): string {
+  return regionNames.of(countryCode) ?? countryCode
+}
+
+export const phoneCountriesByName = [...phoneCountries].sort((a, b) => phoneCountryName(a.countryCode).localeCompare(phoneCountryName(b.countryCode), 'en'))
 
 export function splitInternationalPhone(value: string): { country: PhoneCountry; national: string } | null {
   const digits = value.replace(/\D/g, '')

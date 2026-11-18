@@ -42,15 +42,134 @@ input[type="number"] {
   padding-top: 0;
   padding-bottom: 0;
 }
-/* Auth portal password fields: use Inter so dots feel lighter/smaller without changing size */
-.auth-password-input {
-  font-family: var(--font-inter), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+/* Auth fields match the dial code: Montserrat at 13px, including typed values.
+   Phones use 16px so Safari does not zoom the page on focus. */
+.auth-portal input,
+.auth-portal select,
+.auth-portal textarea,
+.auth-password-input,
+.auth-portal .auth-dial-code {
+  font-family: var(--font-montserrat), 'Montserrat', ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+}
+/* Dial code and the typed number are both inputs, so Chromium paints them
+   at the same size and on the same baseline. */
+.auth-portal .auth-dial-code,
+.auth-portal .auth-phone-input {
+  line-height: 1;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.auth-portal input.auth-dial-code {
+  field-sizing: content;
+  width: auto;
+  min-width: 0;
+  border: 0;
+}
+.auth-portal input.auth-code-input {
+  font-size: 20px;
+  font-weight: 500;
+  text-align: center;
+  padding: 0;
+}
+@media (max-width: 1023px) {
+  .auth-portal input,
+  .auth-portal select,
+  .auth-portal textarea,
+  .auth-password-input,
+  .auth-portal .auth-dial-code {
+    font-size: 16px;
+  }
+}
+@keyframes auth-fade-out {
+  to { opacity: 0; }
+}
+@keyframes auth-fade-in {
+  from { opacity: 0; }
+}
+@keyframes auth-slide-to-bottom {
+  to { transform: translateY(30px); }
+}
+@keyframes auth-slide-from-top {
+  from { transform: translateY(-30px); }
+}
+html[data-auth-slide]::view-transition-old(root),
+html[data-auth-slide]::view-transition-new(root) {
+  animation: none;
+}
+html[data-auth-slide]::view-transition-old(auth-form) {
+  mix-blend-mode: normal;
+  object-fit: none;
+  object-position: center top;
+  animation:
+    150ms cubic-bezier(0.4, 0, 1, 1) both auth-fade-out,
+    150ms cubic-bezier(0.4, 0, 1, 1) both auth-slide-to-bottom;
+}
+html[data-auth-slide]::view-transition-new(auth-form) {
+  mix-blend-mode: normal;
+  object-fit: none;
+  object-position: center top;
+  animation:
+    200ms cubic-bezier(0, 0, 0.2, 1) 160ms both auth-fade-in,
+    280ms cubic-bezier(0.4, 1.44, 0.66, 0.94) 160ms both auth-slide-from-top;
+}
+html[data-auth-slide='screen']::view-transition-group(auth-account) {
+  animation: none;
+}
+html[data-auth-slide='screen']::view-transition-image-pair(auth-account) {
+  isolation: isolate;
+}
+html[data-auth-slide='screen']::view-transition-old(auth-account),
+html[data-auth-slide='screen']::view-transition-new(auth-account) {
+  mix-blend-mode: normal;
+  object-fit: none;
+  object-position: center;
+  height: auto;
+}
+html[data-auth-slide='screen']::view-transition-old(auth-account) {
+  animation: 140ms cubic-bezier(0.4, 0, 1, 1) both auth-fade-out;
+}
+html[data-auth-slide='screen']::view-transition-new(auth-account) {
+  animation: 160ms cubic-bezier(0, 0, 0.2, 1) 150ms both auth-fade-in;
+}
+html[data-auth-slide='step']::view-transition-group(auth-account),
+html[data-auth-slide='step']::view-transition-old(auth-account),
+html[data-auth-slide='step']::view-transition-new(auth-account) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-auth-slide]::view-transition-old(auth-form),
+  html[data-auth-slide]::view-transition-old(auth-account),
+  html[data-auth-slide]::view-transition-new(auth-form),
+  html[data-auth-slide]::view-transition-new(auth-account) {
+    animation: none;
+  }
 }
 .auth-portal input::placeholder,
-.auth-portal select:invalid {
+.auth-portal select:has(option[value=""]:checked) {
   font-family: var(--font-montserrat);
   font-weight: 500;
   color: rgb(161, 161, 170);
+}
+.auth-portal select:has(option:checked:not([value=""])) {
+  color: #18181b;
+  font-weight: 400;
+}
+.auth-portal input:-webkit-autofill,
+.auth-portal input:-webkit-autofill:hover,
+.auth-portal input:-webkit-autofill:focus,
+.auth-portal input:-webkit-autofill:active,
+.auth-portal textarea:-webkit-autofill,
+.auth-portal select:-webkit-autofill,
+.auth-portal input:autofill,
+.auth-portal textarea:autofill,
+.auth-portal select:autofill {
+  -webkit-text-fill-color: #18181B;
+  caret-color: #18181B;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  background-color: #ffffff !important;
+  transition: background-color 99999s ease-out;
 }
 .auth-portal select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2371717a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
@@ -58,9 +177,6 @@ input[type="number"] {
   background-position: right 0.75rem center;
   background-size: 1rem;
   padding-right: 2.5rem;
-}
-.auth-portal select:valid {
-  color: #18181b;
 }
 .auth-portal select option {
   color: #18181b;

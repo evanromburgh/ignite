@@ -3,3 +3,11 @@ project_id = "ignite-shell"
 [api]
 enabled = true
 schemas = ["public", "graphql_public"]
+
+[auth.email.template.confirmation]
+subject = "{{ .Token }} is your verification code"
+content_path = "./templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "{{ .Token }} is your verification code"
+content_path = "./templates/confirmation.html"

@@ -12,6 +12,8 @@ type AuthContextValue = {
   authLoading: boolean
   accessToken: string | null
   signUp: (input: SignUpInput) => Promise<'created' | 'exists' | 'confirm'>
+  verifySignupCode: (email: string, token: string) => Promise<void>
+  resendSignupCode: (email: string) => Promise<void>
   completeProfile: (input: CompleteProfileInput) => Promise<void>
   login: (email: string, password: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
@@ -68,7 +70,53 @@ function profileIsComplete(user: Pick<AppUser, 'firstName' | 'lastName' | 'phone
   return Boolean(user.firstName?.trim() && user.lastName?.trim() && user.phone?.trim() && user.idPassportNumber?.trim() && user.interestedIn?.trim() && user.reasonForBuying?.trim())
 }
 
-function syncSignup(userId: string, input: CompleteProfileInput, token?: string | null) {
+const PENDING_SIGNUP_KEY = 'ignite-signup-pending'
+const resentAt = new Map<string, number>()
+
+function pendingSignup(input: Omit<CompleteProfileInput, 'password'>): Omit<CompleteProfileInput, 'password'> {
+  return {
+    email: input.email,
+    name: input.name,
+    firstName: input.firstName,
+    lastName: input.lastName,
+    phone: input.phone,
+    idPassport: input.idPassport,
+    interestedIn: input.interestedIn,
+    reasonForBuying: input.reasonForBuying,
+  }
+}
+
+function rememberSignup(input: Omit<CompleteProfileInput, 'password'>) {
+  const pending = pendingSignup(input)
+  try {
+    sessionStorage.setItem(PENDING_SIGNUP_KEY, JSON.stringify(pending))
+  } catch {
+    return pending
+  }
+  return pending
+}
+
+function readPendingSignup(email: string): Omit<CompleteProfileInput, 'password'> | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_SIGNUP_KEY)
+    if (!raw) return null
+    const pending = JSON.parse(raw) as Omit<CompleteProfileInput, 'password'>
+    if (pending.email?.trim().toLowerCase() !== email.trim().toLowerCase()) return null
+    return pendingSignup(pending)
+  } catch {
+    return null
+  }
+}
+
+function clearPendingSignup() {
+  try {
+    sessionStorage.removeItem(PENDING_SIGNUP_KEY)
+  } catch {
+    return
+  }
+}
+
+function syncSignup(userId: string, input: Omit<CompleteProfileInput, 'password'>, token?: string | null) {
   return fetch('/api/auth/post-signup', {
     method: 'POST',
     headers: {
@@ -228,9 +276,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const identities = data.user?.identities
       if (data.user && Array.isArray(identities) && identities.length === 0) return 'exists'
-      if (data.user?.id) await syncSignup(data.user.id, input, data.session?.access_token)
-      if (!data.session) return 'confirm'
+      if (!data.session) {
+        if (data.user?.id) rememberSignup(input)
+        return 'confirm'
+      }
+      clearPendingSignup()
+      if (data.user?.id) await syncSignup(data.user.id, input, data.session.access_token)
       return 'created'
+    },
+    async verifySignupCode(email, token) {
+      const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'signup' })
+      if (error) throw error
+      const pending = readPendingSignup(email)
+      clearPendingSignup()
+      if (pending && data.user?.id && data.session?.access_token) {
+        await syncSignup(data.user.id, pending, data.session.access_token)
+      }
+    },
+    async resendSignupCode(email) {
+      const key = email.trim().toLowerCase()
+      if (Date.now() - (resentAt.get(key) ?? 0) < 60_000) return
+      const { error } = await supabase.auth.resend({ email: key, type: 'signup' })
+      if (error) throw error
+      resentAt.set(key, Date.now())
     },
     async completeProfile(input) {
       if (!user) throw new Error('Sign in with Google before completing your details.')

@@ -1,25 +1,52 @@
 import { NextResponse } from 'next/server'
-import { jsonError } from '@/lib/api'
+import { jsonError, requireUser } from '@/lib/api'
 import { assignAgentFromZohoUser } from '@/lib/assigned-agent'
 import { createAgentAssignmentStore } from '@/lib/assigned-agent-store'
+import { clientIp, rateLimit } from '@/lib/rate-limit'
+import { SIGNUP_INTERESTS, SIGNUP_REASONS } from '@/lib/signup-options'
 import { createServiceClient } from '@/lib/supabase'
 import { findOrCreateZohoLead } from '@/lib/zoho'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null
-  const userId = String(body?.userId ?? '').trim()
-  const email = String(body?.email ?? '').trim().toLowerCase()
-  const firstName = String(body?.firstName ?? '').trim()
-  const lastName = String(body?.lastName ?? '').trim()
-  const phone = String(body?.phone ?? '').trim()
-  const idPassport = String(body?.idPassport ?? '').trim()
-  const interestedIn = String(body?.interestedIn ?? '').trim()
-  const reasonForBuying = String(body?.reasonForBuying ?? '').trim()
+const INTERESTS = new Set<string>(SIGNUP_INTERESTS)
+const REASONS = new Set<string>(SIGNUP_REASONS)
 
-  if (!userId || !email || !firstName || !lastName) {
+function bounded(value: unknown, max: number) {
+  return String(value ?? '').trim().slice(0, max)
+}
+
+export async function POST(request: Request) {
+  const ip = clientIp(request.headers.get('x-forwarded-for'))
+  if (!rateLimit(`post-signup:${ip}`, 10, 10 * 60_000)) {
+    return jsonError(429, 'Too many attempts. Try again shortly.')
+  }
+
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null
+  const userId = bounded(body?.userId, 64)
+  const email = bounded(body?.email, 254).toLowerCase()
+  const firstName = bounded(body?.firstName, 80)
+  const lastName = bounded(body?.lastName, 80)
+  const phoneRaw = bounded(body?.phone, 20)
+  const idRaw = bounded(body?.idPassport, 32).replace(/\D/g, '')
+  const interestRaw = bounded(body?.interestedIn, 80)
+  const reasonRaw = bounded(body?.reasonForBuying, 80)
+  const phone = /^\+\d{8,15}$/.test(phoneRaw) ? phoneRaw : ''
+  const idPassport = idRaw.length === 13 ? idRaw : ''
+  const interestedIn = INTERESTS.has(interestRaw) ? interestRaw : ''
+  const reasonForBuying = REASONS.has(reasonRaw) ? reasonRaw : ''
+
+  if (!/^[0-9a-f-]{36}$/i.test(userId) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !firstName || !lastName) {
     return jsonError(400, 'Missing required signup fields')
+  }
+
+  const caller = await requireUser(request)
+  if (caller instanceof NextResponse) return caller
+  if (caller.user.id !== userId) return jsonError(403, 'Forbidden')
+  const authEmail = String(caller.user.email ?? '').trim().toLowerCase()
+  if (!authEmail || authEmail !== email) return jsonError(400, 'User/email mismatch')
+  if (!rateLimit(`post-signup-user:${userId}`, 5, 10 * 60_000)) {
+    return jsonError(429, 'Too many attempts. Try again shortly.')
   }
 
   let supabase
@@ -27,23 +54,6 @@ export async function POST(request: Request) {
     supabase = createServiceClient()
   } catch {
     return jsonError(500, 'Server configuration error')
-  }
-
-  const { data: userRes, error: userErr } = await supabase.auth.admin.getUserById(userId)
-  if (userErr || !userRes.user) return jsonError(404, 'User not found')
-  const authEmail = String(userRes.user.email ?? '').trim().toLowerCase()
-  if (!authEmail || authEmail !== email) return jsonError(400, 'User/email mismatch')
-
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim() ?? ''
-  let callerId = ''
-  if (token) {
-    const { data: caller, error: callerErr } = await supabase.auth.getUser(token)
-    if (!callerErr && caller.user) callerId = caller.user.id
-  }
-  const createdMs = userRes.user.created_at ? new Date(userRes.user.created_at).getTime() : NaN
-  const withinSignupWindow = Number.isFinite(createdMs) && Date.now() - createdMs <= 30 * 60 * 1000
-  if (callerId !== userId && !withinSignupWindow) {
-    return jsonError(403, 'Post-signup window expired')
   }
 
   const updates: Record<string, string> = { first_name: firstName, last_name: lastName }
@@ -94,5 +104,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, profileUpdated: !profileErr, zohoLeadId, zohoLeadCreated })
+  return NextResponse.json({ ok: true })
 }

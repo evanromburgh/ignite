@@ -148,7 +148,7 @@ export async function findOrCreateZohoLead(input: SignupLead): Promise<ZohoLeadL
   const reasonForBuying = input.reasonForBuying.trim()
   if (reasonForBuying) lead.Reason_For_Buying = reasonForBuying
   const idPassport = input.idPassport.trim()
-  if (idPassport) lead.ID_Passport_Number = idPassport
+  if (idPassport) lead.ID_Number = idPassport
 
   const created = await fetch(`${base}/Leads`, {
     method: 'POST',
